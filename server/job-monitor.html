@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CMini Job Monitor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #1e1e1e; 
+            color: #d4d4d4; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        
+        h1 { 
+            color: #61dafb; 
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .nav { 
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+        }
+        .nav a { 
+            color: #61dafb; 
+            text-decoration: none;
+            padding: 5px 10px;
+            border: 1px solid #61dafb;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        .nav a:hover {
+            background: #61dafb;
+            color: #1e1e1e;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: #2d2d30;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #3e3e42;
+        }
+        
+        .stat-card h3 {
+            color: #9cdcfe;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #d7ba7d;
+            margin-bottom: 10px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #1e1e1e;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #61dafb, #4fc3f7);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        .section {
+            background: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .section h2 {
+            color: #9cdcfe;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: #2d2d30;
+            color: #9cdcfe;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #3e3e42;
+        }
+        
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #3e3e42;
+        }
+        
+        tr:hover {
+            background: #2d2d30;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .status-active { background: #4ec9b0; color: #1e1e1e; }
+        .status-completed { background: #608b4e; color: white; }
+        .status-failed { background: #f44747; color: white; }
+        .status-waiting { background: #dcdcaa; color: #1e1e1e; }
+        
+        .process-status {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .process-item {
+            background: #2d2d30;
+            padding: 10px 15px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .process-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .process-running { background: #4ec9b0; }
+        .process-stopped { background: #f44747; }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .error-msg {
+            background: #f44747;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            display: none;
+        }
+        
+        .last-update {
+            color: #808080;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #808080;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 CMini Job Monitor</h1>
+        
+        <div class="nav">
+            <a href="/">Setup Portal</a>
+            <a href="#" onclick="fetchData(); return false;">Refresh Now</a>
+            <a href="http://100.114.129.95:3001/api/stats" target="_blank">Raw Stats</a>
+        </div>
+        
+        <div id="error-msg" class="error-msg"></div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>CPU Usage</h3>
+                <div class="stat-value" id="cpu-value">--</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="cpu-progress"></div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Memory</h3>
+                <div class="stat-value" id="memory-value">--</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="memory-progress"></div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Disk Usage</h3>
+                <div class="stat-value" id="disk-value">--</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="disk-progress"></div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Queue Stats</h3>
+                <div class="stat-value" id="queue-value">--</div>
+                <div id="queue-details" style="font-size: 12px; color: #808080;"></div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Process Status</h2>
+            <div class="process-status" id="process-status">
+                <div class="process-item">
+                    <div class="process-indicator process-stopped"></div>
+                    <span>Loading...</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Active Jobs</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Job ID</th>
+                        <th>Type</th>
+                        <th>Progress</th>
+                        <th>Started</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="active-jobs">
+                    <tr><td colspan="5" class="empty-state">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>Recent Jobs (Last 20)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Job ID</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Duration</th>
+                        <th>Finished</th>
+                    </tr>
+                </thead>
+                <tbody id="recent-jobs">
+                    <tr><td colspan="5" class="empty-state">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="last-update">Last updated: <span id="last-update">Never</span></div>
+    </div>
+    
+    <script>
+        const API_BASE = 'http://100.114.129.95:3001';
+        
+        function formatBytes(bytes) {
+            const gb = bytes / (1024 ** 3);
+            return gb.toFixed(2) + ' GB';
+        }
+        
+        function formatDuration(ms) {
+            if (!ms) return 'N/A';
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            if (hours > 0) return `${hours}h ${minutes % 60}m`;
+            if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+            return `${seconds}s`;
+        }
+        
+        function formatDate(timestamp) {
+            if (!timestamp) return 'N/A';
+            return new Date(timestamp).toLocaleString();
+        }
+        
+        function showError(msg) {
+            const errorDiv = document.getElementById('error-msg');
+            errorDiv.textContent = msg;
+            errorDiv.style.display = 'block';
+            setTimeout(() => errorDiv.style.display = 'none', 5000);
+        }
+        
+        async function fetchData() {
+            try {
+                // Fetch all data in parallel
+                const [systemStats, processStats, activeJobs, recentJobs, queueStats] = await Promise.all([
+                    fetch(`${API_BASE}/api/system-stats`).then(r => r.json()),
+                    fetch(`${API_BASE}/api/process-stats`).then(r => r.json()),
+                    fetch(`${API_BASE}/api/jobs/active`).then(r => r.json()),
+                    fetch(`${API_BASE}/api/jobs/recent`).then(r => r.json()),
+                    fetch(`${API_BASE}/api/stats`).then(r => r.json())
+                ]);
+                
+                // Update system stats
+                document.getElementById('cpu-value').textContent = 
+                    Math.round(systemStats.cpuUsage) + '%';
+                document.getElementById('cpu-progress').style.width = 
+                    systemStats.cpuUsage + '%';
+                
+                document.getElementById('memory-value').textContent = 
+                    `${systemStats.memoryUsage.toFixed(1)}/${systemStats.memoryTotal.toFixed(1)} GB`;
+                document.getElementById('memory-progress').style.width = 
+                    systemStats.memoryPercent + '%';
+                
+                document.getElementById('disk-value').textContent = 
+                    formatBytes(systemStats.diskUsage);
+                document.getElementById('disk-progress').style.width = 
+                    systemStats.diskPercent + '%';
+                
+                // Update queue stats
+                const stats = queueStats.stats;
+                document.getElementById('queue-value').textContent = 
+                    `${stats.active} active`;
+                document.getElementById('queue-details').innerHTML = 
+                    `Waiting: ${stats.waiting} | Completed: ${stats.completed} | Failed: ${stats.failed}`;
+                
+                // Update process status
+                const processHtml = [];
+                if (processStats.node) {
+                    processHtml.push(`
+                        <div class="process-item">
+                            <div class="process-indicator process-running"></div>
+                            <span>Node.js (PID: ${processStats.node.pid})</span>
+                        </div>
+                    `);
+                }
+                if (processStats.redis) {
+                    processHtml.push(`
+                        <div class="process-item">
+                            <div class="process-indicator process-running"></div>
+                            <span>Redis (PID: ${processStats.redis.pid})</span>
+                        </div>
+                    `);
+                }
+                if (processStats.ollama) {
+                    processHtml.push(`
+                        <div class="process-item">
+                            <div class="process-indicator process-running"></div>
+                            <span>Ollama (PID: ${processStats.ollama.pid})</span>
+                        </div>
+                    `);
+                }
+                document.getElementById('process-status').innerHTML = 
+                    processHtml.join('') || '<div class="process-item">No processes detected</div>';
+                
+                // Update active jobs
+                const activeHtml = activeJobs.length ? activeJobs.map(job => `
+                    <tr>
+                        <td>${job.id}</td>
+                        <td>${job.type}</td>
+                        <td>${job.progress}%</td>
+                        <td>${formatDate(job.started)}</td>
+                        <td><span class="status-badge status-active">Active</span></td>
+                    </tr>
+                `).join('') : '<tr><td colspan="5" class="empty-state">No active jobs</td></tr>';
+                document.getElementById('active-jobs').innerHTML = activeHtml;
+                
+                // Update recent jobs (limit to 20)
+                const recentHtml = recentJobs.slice(0, 20).length ? recentJobs.slice(0, 20).map(job => `
+                    <tr>
+                        <td>${job.id}</td>
+                        <td>${job.type}</td>
+                        <td><span class="status-badge status-${job.status}">${job.status}</span></td>
+                        <td>${formatDuration(job.duration)}</td>
+                        <td>${formatDate(job.finishedOn)}</td>
+                    </tr>
+                `).join('') : '<tr><td colspan="5" class="empty-state">No recent jobs</td></tr>';
+                document.getElementById('recent-jobs').innerHTML = recentHtml;
+                
+                // Update last update time
+                document.getElementById('last-update').textContent = 
+                    new Date().toLocaleTimeString();
+                    
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                showError('Failed to fetch monitoring data: ' + error.message);
+            }
+        }
+        
+        // Initial fetch
+        fetchData();
+        
+        // Auto-refresh every 5 seconds
+        setInterval(fetchData, 5000);
+    </script>
+</body>
+</html>

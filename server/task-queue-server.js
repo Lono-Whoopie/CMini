@@ -11,6 +11,9 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { spawn } = require('child_process');
 
+// Import monitoring module
+const monitoring = require('./monitoring');
+
 const app = express();
 const port = 3001;
 
@@ -604,6 +607,57 @@ app.post('/api/clean', async (req, res) => {
             success: true, 
             message: 'Old jobs cleaned' 
         });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// System monitoring endpoints
+app.get('/api/system-stats', async (req, res) => {
+    try {
+        const stats = await monitoring.getSystemStats();
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/process-stats', async (req, res) => {
+    try {
+        const stats = await monitoring.getProcessStats();
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/jobs/recent', async (req, res) => {
+    try {
+        const jobs = await devQueue.getJobs(['completed', 'failed'], 0, 50);
+        const jobData = jobs.map(job => ({
+            id: job.id,
+            type: job.data.task_type || job.name,
+            status: job.finishedOn ? 'completed' : 'failed',
+            duration: job.finishedOn - job.processedOn,
+            finishedOn: job.finishedOn,
+            result: job.returnvalue
+        }));
+        res.json(jobData);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/jobs/active', async (req, res) => {
+    try {
+        const jobs = await devQueue.getActive();
+        const jobData = jobs.map(job => ({
+            id: job.id,
+            type: job.data.task_type || job.name,
+            progress: job.progress || 0,
+            started: job.processedOn
+        }));
+        res.json(jobData);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

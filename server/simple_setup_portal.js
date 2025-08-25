@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const app = express();
 const port = 8080;
 
@@ -284,17 +285,23 @@ app.get('/health', (req, res) => {
 
 app.get('/version', (req, res) => {
     res.json({ 
-        version: '2.0.0',
+        version: '2.1.0',
         updated: '2025-08-25',
         features: [
             'CrewAI/AutoGen support with NO TIMEOUTS',
             'M4 Pro optimization for Metal acceleration',
             'Persistent job queue for days-long tasks',
             '64GB RAM for multiple 70B models',
-            'Automatic update checking'
+            'Automatic update checking',
+            'NEW: Job monitoring dashboard with system stats'
         ],
         check_for_updates: 'curl http://100.114.129.95:8080/version'
     });
+});
+
+// Serve job monitoring page
+app.get('/jobs', (req, res) => {
+    res.sendFile(path.join(__dirname, 'job-monitor.html'));
 });
 
 // Diagnostic endpoint to test Ollama from portal
