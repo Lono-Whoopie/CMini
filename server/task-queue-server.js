@@ -651,11 +651,22 @@ app.get('/api/jobs/recent', async (req, res) => {
 app.get('/api/jobs/active', async (req, res) => {
     try {
         const jobs = await devQueue.getActive();
-        const jobData = jobs.map(job => ({
-            id: job.id,
-            type: job.data.task_type || job.name,
-            progress: job.progress || 0,
-            started: job.processedOn
+        const jobData = await Promise.all(jobs.map(async job => {
+            // Get progress from job.progress() method
+            let progress = 0;
+            try {
+                progress = await job.progress();
+            } catch (e) {
+                // If progress() method fails, try direct property
+                progress = job.progress || job._progress || 0;
+            }
+            
+            return {
+                id: job.id,
+                type: job.data?.task_type || job.name || 'unknown',
+                progress: progress || 0,
+                started: job.processedOn || job.timestamp
+            };
         }));
         res.json(jobData);
     } catch (error) {

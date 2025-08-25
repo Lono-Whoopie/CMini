@@ -379,7 +379,7 @@
                     <tr>
                         <td>${job.id}</td>
                         <td>${job.type}</td>
-                        <td>${job.progress}%</td>
+                        <td>${job.progress !== undefined ? job.progress : 0}%</td>
                         <td>${formatDate(job.started)}</td>
                         <td><span class="status-badge status-active">Active</span></td>
                     </tr>
