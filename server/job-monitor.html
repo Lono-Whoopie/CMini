@@ -308,19 +308,54 @@
             const errorDiv = document.getElementById('error-msg');
             errorDiv.textContent = msg;
             errorDiv.style.display = 'block';
-            setTimeout(() => errorDiv.style.display = 'none', 5000);
+            setTimeout(() => errorDiv.style.display = 'none', 2000);
+        }
+        
+        async function fetchWithTimeout(url, timeout = 3000) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    throw new Error('Request timeout');
+                }
+                throw error;
+            }
         }
         
         async function fetchData() {
             try {
-                // Fetch all data in parallel
-                const [systemStats, processStats, activeJobs, recentJobs, queueStats] = await Promise.all([
-                    fetch(`${API_BASE}/api/system-stats`).then(r => r.json()),
-                    fetch(`${API_BASE}/api/process-stats`).then(r => r.json()),
-                    fetch(`${API_BASE}/api/jobs/active`).then(r => r.json()),
-                    fetch(`${API_BASE}/api/jobs/recent`).then(r => r.json()),
-                    fetch(`${API_BASE}/api/stats`).then(r => r.json())
+                // Fetch all data with individual error handling
+                const results = await Promise.allSettled([
+                    fetchWithTimeout(`${API_BASE}/api/system-stats`),
+                    fetchWithTimeout(`${API_BASE}/api/process-stats`),
+                    fetchWithTimeout(`${API_BASE}/api/jobs/active`),
+                    fetchWithTimeout(`${API_BASE}/api/jobs/recent`),
+                    fetchWithTimeout(`${API_BASE}/api/stats`)
                 ]);
+                
+                // Extract results with defaults for failed requests
+                const systemStats = results[0].status === 'fulfilled' ? results[0].value : 
+                    { cpuUsage: 0, memoryUsage: 0, memoryTotal: 64, memoryPercent: 0, diskUsage: 0, diskPercent: 0 };
+                const processStats = results[1].status === 'fulfilled' ? results[1].value : 
+                    { node: null, redis: null, ollama: null };
+                const activeJobs = results[2].status === 'fulfilled' ? results[2].value : [];
+                const recentJobs = results[3].status === 'fulfilled' ? results[3].value : [];
+                const queueStats = results[4].status === 'fulfilled' ? results[4].value : 
+                    { stats: { active: 0, waiting: 0, completed: 0, failed: 0 } };
+                
+                // Count how many requests failed
+                const failedCount = results.filter(r => r.status === 'rejected').length;
+                if (failedCount > 3) {
+                    // Only show error if most requests failed
+                    showError(`Connection issues - ${failedCount}/5 requests failed`);
+                }
                 
                 // Update system stats
                 document.getElementById('cpu-value').textContent = 
@@ -403,16 +438,17 @@
                     new Date().toLocaleTimeString();
                     
             } catch (error) {
-                console.error('Error fetching data:', error);
-                showError('Failed to fetch monitoring data: ' + error.message);
+                // Log error but don't show UI error for every failure
+                console.warn('Monitoring fetch issue:', error.message);
+                // Only show error for complete failures, not partial
             }
         }
         
         // Initial fetch
         fetchData();
         
-        // Auto-refresh every 5 seconds
-        setInterval(fetchData, 5000);
+        // Auto-refresh every 10 seconds (reduced from 5 to minimize flashing)
+        setInterval(fetchData, 10000);
     </script>
 </body>
 </html>
