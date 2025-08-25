@@ -1,0 +1,90 @@
+# Claude Global Configuration
+# This file configures Claude to use the M4 Pro Mini for heavy compute tasks
+
+# Mini Dev Server Configuration
+export CLAUDE_DEV_SERVER="http://100.114.129.95:3001"
+export CLAUDE_DEV_SERVER_LAN="http://10.0.10.244:3001"
+export CLAUDE_MINI_IP="100.114.129.95"
+export CLAUDE_MINI_LAN="10.0.10.244"
+export CLAUDE_MINI_SSH="100.114.129.95"
+
+# Ollama Server on Mini
+export CLAUDE_OLLAMA_HOST="http://100.114.129.95:11434"
+export CLAUDE_OLLAMA_API="http://100.114.129.95:11434/api"
+
+# Redis on Mini
+export CLAUDE_REDIS_HOST="100.114.129.95"
+export CLAUDE_REDIS_PORT="6379"
+
+# Development Task Queue Endpoints
+export CLAUDE_TASK_SUBMIT="${CLAUDE_DEV_SERVER}/api/dev-task"
+export CLAUDE_TASK_STATUS="${CLAUDE_DEV_SERVER}/api/job"
+export CLAUDE_TASK_STATS="${CLAUDE_DEV_SERVER}/api/stats"
+export CLAUDE_MODELS_CHECK="${CLAUDE_DEV_SERVER}/api/models"
+
+# Available Task Types
+export CLAUDE_TASKS="code-analysis,code-generation,code-refactor,debugging,documentation,testing,architecture,planning,review"
+
+# Helper Functions
+claude_submit_task() {
+    local task_type="$1"
+    local content="$2"
+    local context="${3:-}"
+    
+    curl -X POST "${CLAUDE_TASK_SUBMIT}" \
+        -H "Content-Type: application/json" \
+        -d "{\"task_type\":\"${task_type}\",\"content\":\"${content}\",\"context\":\"${context}\"}"
+}
+
+claude_check_job() {
+    local job_id="$1"
+    curl -s "${CLAUDE_TASK_STATUS}/${job_id}" | python3 -m json.tool
+}
+
+claude_server_health() {
+    curl -s "${CLAUDE_DEV_SERVER}/health" | python3 -m json.tool
+}
+
+claude_queue_stats() {
+    curl -s "${CLAUDE_TASK_STATS}" | python3 -m json.tool
+}
+
+claude_models() {
+    curl -s "${CLAUDE_MODELS_CHECK}" | python3 -m json.tool
+}
+
+claude_mini_ssh() {
+    ssh "${CLAUDE_MINI_SSH}" "$@"
+}
+
+claude_mini_scp() {
+    scp "$1" "${CLAUDE_MINI_SSH}:$2"
+}
+
+# Aliases for quick access
+alias mini="ssh ${CLAUDE_MINI_SSH}"
+alias mini-health="claude_server_health"
+alias mini-stats="claude_queue_stats"
+alias mini-models="claude_models"
+
+# Auto-check for updates function
+claude_check_updates() {
+    ~/.claude_check_updates.sh
+}
+
+# Check for updates on sourcing (once per session)
+if [ -z "$CLAUDE_UPDATES_CHECKED" ]; then
+    export CLAUDE_UPDATES_CHECKED=1
+    echo "🔍 Checking Mini Server for updates..."
+    curl -s http://${CLAUDE_MINI_IP}:8080/version 2>/dev/null | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    print(f\"📋 Mini Server v{data.get('version', '?')} ({data.get('updated', 'unknown date')})\")
+except:
+    print('⚠️ Could not check for updates')
+" 2>/dev/null
+fi
+
+echo "🤖 Claude configured to use Mini Dev Server at ${CLAUDE_MINI_IP}"
+echo "💡 Run 'claude_check_updates' to check for server updates"
