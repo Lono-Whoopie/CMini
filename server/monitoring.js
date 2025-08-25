@@ -1,47 +1,55 @@
-const si = require('systeminformation');
-const Queue = require('bull');
-const axios = require('axios');
-
-const devQueue = new Queue('Development Tasks', { 
-    redis: { host: 'localhost', port: 6379 } 
-});
+// Simple monitoring module without external dependencies
+const os = require('os');
+const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
 
 async function getSystemStats() {
     try {
-        const [cpu, mem, disk, net, temp, currentLoad] = await Promise.all([
-            si.cpu(),
-            si.mem(),
-            si.fsSize(),
-            si.networkInterfaces(),
-            si.cpuTemperature(),
-            si.currentLoad()
-        ]);
-
-        // Calculate disk usage from all mounted drives
-        const totalDisk = disk.reduce((acc, d) => acc + d.size, 0);
-        const usedDisk = disk.reduce((acc, d) => acc + d.used, 0);
-
+        const totalMem = os.totalmem();
+        const freeMem = os.freemem();
+        const usedMem = totalMem - freeMem;
+        const loadAvg = os.loadavg();
+        
+        // Try to get disk usage
+        let diskUsage = 0;
+        let diskTotal = 512 * (1024 ** 3); // Default 512GB
+        let diskPercent = 0;
+        
+        try {
+            const { stdout } = await execPromise('df -k / | tail -1');
+            const parts = stdout.trim().split(/\s+/);
+            if (parts.length >= 4) {
+                diskTotal = parseInt(parts[1]) * 1024; // Convert KB to bytes
+                diskUsage = parseInt(parts[2]) * 1024;
+                diskPercent = (diskUsage / diskTotal) * 100;
+            }
+        } catch (e) {
+            console.error('Could not get disk stats:', e.message);
+        }
+        
         return {
-            cpuUsage: currentLoad.currentLoad || 0,
-            cpuCores: cpu.cores || 14,
-            memoryUsage: mem.used / (1024 ** 3),
-            memoryTotal: mem.total / (1024 ** 3),
-            memoryPercent: (mem.used / mem.total) * 100,
-            diskUsage: usedDisk,
-            diskTotal: totalDisk,
-            diskPercent: (usedDisk / totalDisk) * 100,
-            networkInterfaces: net.filter(ni => ni.ip4).map(ni => ({
-                iface: ni.iface,
-                ip4: ni.ip4
-            })),
-            temperature: temp.main || 0 // macOS might not provide temp data
+            cpuUsage: Math.min(100, loadAvg[0] * 10), // Rough estimate
+            cpuCores: os.cpus().length,
+            memoryUsage: usedMem / (1024 ** 3),
+            memoryTotal: totalMem / (1024 ** 3),
+            memoryPercent: (usedMem / totalMem) * 100,
+            diskUsage: diskUsage,
+            diskTotal: diskTotal,
+            diskPercent: diskPercent,
+            temperature: 0, // Not available without sensors
+            loadAverage: loadAvg
         };
     } catch (error) {
         console.error('Error getting system stats:', error);
         return {
             cpuUsage: 0,
             memoryUsage: 0,
+            memoryTotal: os.totalmem() / (1024 ** 3),
+            memoryPercent: 0,
             diskUsage: 0,
+            diskTotal: 0,
+            diskPercent: 0,
             temperature: 0,
             error: error.message
         };
@@ -50,32 +58,54 @@ async function getSystemStats() {
 
 async function getProcessStats() {
     try {
-        const processes = await si.processes();
+        const processes = {};
         
-        const nodeProc = processes.list.find(p => 
-            p.name.includes('node') || p.command?.includes('node'));
-        const redisProc = processes.list.find(p => 
-            p.name.includes('redis') || p.command?.includes('redis'));
-        const ollamaProc = processes.list.find(p => 
-            p.name.includes('ollama') || p.command?.includes('ollama'));
-
-        return {
-            node: nodeProc ? { 
-                pid: nodeProc.pid, 
-                cpu: nodeProc.cpu || 0,
-                mem: nodeProc.mem || 0 
-            } : null,
-            redis: redisProc ? { 
-                pid: redisProc.pid, 
-                cpu: redisProc.cpu || 0,
-                mem: redisProc.mem || 0 
-            } : null,
-            ollama: ollamaProc ? { 
-                pid: ollamaProc.pid, 
-                cpu: ollamaProc.cpu || 0,
-                mem: ollamaProc.mem || 0 
-            } : null
-        };
+        // Check for node process
+        try {
+            const { stdout: nodePs } = await execPromise('ps aux | grep "node server" | grep -v grep | head -1');
+            if (nodePs) {
+                const parts = nodePs.trim().split(/\s+/);
+                processes.node = {
+                    pid: parseInt(parts[1]),
+                    cpu: parseFloat(parts[2]),
+                    mem: parseFloat(parts[3])
+                };
+            }
+        } catch (e) {
+            processes.node = null;
+        }
+        
+        // Check for redis
+        try {
+            const { stdout: redisPs } = await execPromise('ps aux | grep redis-server | grep -v grep | head -1');
+            if (redisPs) {
+                const parts = redisPs.trim().split(/\s+/);
+                processes.redis = {
+                    pid: parseInt(parts[1]),
+                    cpu: parseFloat(parts[2]),
+                    mem: parseFloat(parts[3])
+                };
+            }
+        } catch (e) {
+            processes.redis = null;
+        }
+        
+        // Check for ollama
+        try {
+            const { stdout: ollamaPs } = await execPromise('ps aux | grep ollama | grep -v grep | head -1');
+            if (ollamaPs) {
+                const parts = ollamaPs.trim().split(/\s+/);
+                processes.ollama = {
+                    pid: parseInt(parts[1]),
+                    cpu: parseFloat(parts[2]),
+                    mem: parseFloat(parts[3])
+                };
+            }
+        } catch (e) {
+            processes.ollama = null;
+        }
+        
+        return processes;
     } catch (error) {
         console.error('Error getting process stats:', error);
         return {
@@ -89,8 +119,8 @@ async function getProcessStats() {
 
 async function getOllamaStats() {
     try {
-        // Get actual Ollama stats from API
-        const response = await axios.get('http://localhost:11434/api/tags');
+        const axios = require('axios');
+        const response = await axios.get('http://localhost:11434/api/tags', { timeout: 2000 });
         const models = response.data.models || [];
         
         const totalSize = models.reduce((acc, model) => acc + (model.size || 0), 0);
@@ -101,30 +131,23 @@ async function getOllamaStats() {
             modelCount: models.length
         };
     } catch (error) {
-        console.error('Error getting Ollama stats:', error);
+        // Ollama might not be running or axios not available
         return { 
             modelMemoryUsage: 0, 
             activeModels: [],
-            modelCount: 0,
-            error: error.message
+            modelCount: 0
         };
     }
 }
 
 async function getQueueStats() {
-    try {
-        const stats = await devQueue.getJobCounts();
-        return stats;
-    } catch (error) {
-        console.error('Error getting queue stats:', error);
-        return {
-            waiting: 0,
-            active: 0,
-            completed: 0,
-            failed: 0,
-            error: error.message
-        };
-    }
+    // This will be populated by the server directly
+    return {
+        waiting: 0,
+        active: 0,
+        completed: 0,
+        failed: 0
+    };
 }
 
 module.exports = { getSystemStats, getProcessStats, getOllamaStats, getQueueStats };
