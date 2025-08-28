@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const app = express();
 const port = 8080;
 
@@ -11,6 +12,7 @@ const setupHTML = `<!DOCTYPE html>
 <html>
 <head>
     <title>Mini Dev Server Setup</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
         h1 { color: #333; }
@@ -33,6 +35,61 @@ const setupHTML = `<!DOCTYPE html>
         <span class="status" style="background:#ec4899">Port: ${TASK_QUEUE_PORT}</span>
     </div>
 
+    <div class="card" style="background: #dcfce7; border: 2px solid #22c55e;">
+        <h2>⚡ ONE-COMMAND SETUP</h2>
+        <p><strong>Configure any machine in seconds!</strong></p>
+        <pre style="background: #1f2937; font-size: 16px;">curl -sSL http://${MINI_TAILSCALE_IP}:8080/setup.sh | bash</pre>
+        <p>This single command will:</p>
+        <ul>
+            <li>✅ Install CrewAI Expert System</li>
+            <li>✅ Configure environment variables</li>
+            <li>✅ Set up Python clients</li>
+            <li>✅ Create helper aliases</li>
+            <li>✅ Generate CLAUDE.md documentation</li>
+            <li>✅ Test all connections</li>
+        </ul>
+    </div>
+
+    <div class="card" style="background: #fef3c7; border: 2px solid #f59e0b;">
+        <h2>🎯 CrewAI Expert System</h2>
+        <p><strong>Transform simple requests into professional AI crews!</strong></p>
+        <p>The CrewAI Expert System eliminates complex crew configuration. Just describe what you want in plain English.</p>
+        
+        <h3>📥 Manual Install</h3>
+        <pre style="background: #1f2937;">curl -o ~/claude_mini_expert.py http://${MINI_TAILSCALE_IP}:8080/downloads/claude_mini_expert.py && chmod +x ~/claude_mini_expert.py</pre>
+        
+        <h3>🚀 Usage Examples</h3>
+        <pre style="background: #1f2937;">from claude_mini_expert import CrewAIExpertClient
+
+client = CrewAIExpertClient()
+
+# One line instead of 100+ lines of configuration!
+result = client.simple_crew("Review my authentication code for security issues")
+
+# Or use convenience functions:
+from claude_mini_expert import review_code, build_api, debug_issue
+
+review_code("auth.py")  # Automatic code review
+build_api("user management system")  # Complete API with docs
+debug_issue("memory leak in worker")  # Smart debugging</pre>
+        
+        <h3>📚 Available Patterns</h3>
+        <ul>
+            <li><strong>Code Review</strong> - Security, performance, quality analysis</li>
+            <li><strong>API Development</strong> - REST/GraphQL with documentation</li>
+            <li><strong>Debugging</strong> - Root cause analysis and fixes</li>
+            <li><strong>Architecture Design</strong> - System design and planning</li>
+            <li><strong>Data Analysis</strong> - Statistics, ML, visualization</li>
+            <li><strong>Refactoring</strong> - Code improvement and modernization</li>
+        </ul>
+        
+        <div style="margin: 15px 0;">
+            <a href="/downloads/claude_mini_expert.py" class="copy-btn" style="text-decoration: none; display: inline-block;">⬇️ Download Expert Client</a>
+            <a href="/docs/crewai-expert" class="copy-btn" style="text-decoration: none; display: inline-block; background: #10b981;">📖 View Documentation</a>
+            <button class="copy-btn" style="background: #f59e0b;" onclick="copyExpertExample()">📋 Copy Example Code</button>
+        </div>
+    </div>
+
     <div class="card">
         <h2>📋 Instructions for Claude</h2>
         <p>Copy and paste these instructions into Claude to configure any computer:</p>
@@ -49,17 +106,24 @@ Server Details:
 - Redis: ${MINI_TAILSCALE_IP}:6379
 
 Please do the following:
-1. Create a ~/.claude_config file with environment variables for the Mini server
-2. Add the config to shell profile (.zshrc or .bashrc)
-3. Create a ~/CLAUDE.md file documenting:
+1. Install the CrewAI Expert System:
+   curl -o ~/claude_mini_expert.py http://${MINI_TAILSCALE_IP}:8080/downloads/claude_mini_expert.py
+   chmod +x ~/claude_mini_expert.py
+2. Create a ~/.claude_config file with environment variables for the Mini server
+3. Add the config to shell profile (.zshrc or .bashrc)
+4. Create a ~/CLAUDE.md file documenting:
    - AUTOMATIC UPDATE CHECK at session start (curl http://${MINI_TAILSCALE_IP}:8080/version)
    - Mini server capabilities and endpoints
    - WHEN to use the Mini (tasks >16GB RAM, 32B+ models, batch processing)
    - HOW to offload tasks (submit to task queue, use Ollama API)
    - Available models and their best use cases
-4. Create a Python client at ~/.claude_mini_client.py for interacting with the server
-5. Set up helper functions and aliases for easy access
-6. Add to CLAUDE.md: "Check portal for updates: curl http://${MINI_TAILSCALE_IP}:8080/version"
+   - IMPORTANT: Use CrewAI Expert for ALL crew creation:
+     from claude_mini_expert import CrewAIExpertClient
+     client = CrewAIExpertClient()
+     result = client.simple_crew("your task description")
+5. Create a Python client at ~/.claude_mini_client.py for interacting with the server
+6. Set up helper functions and aliases for easy access
+7. Add to CLAUDE.md: "Check portal for updates: curl http://${MINI_TAILSCALE_IP}:8080/version"
 
 CRITICAL: The CLAUDE.md file MUST explain that the Mini solves Claude Code's 2-minute timeout:
 
@@ -271,6 +335,32 @@ if task.status_code == 200:
                 alert('Instructions copied to clipboard!');
             });
         }
+        
+        function copyExpertExample() {
+            const example = \`from claude_mini_expert import CrewAIExpertClient
+
+client = CrewAIExpertClient()
+
+# Simple one-line crew creation
+result = client.simple_crew(
+    "Review the authentication system for security issues",
+    context="Django REST API with JWT tokens"
+)
+
+# Monitor progress
+client.wait_for_crew(result['job_id'])
+
+# Or use convenience functions
+from claude_mini_expert import review_code, build_api, debug_issue
+
+review_code("auth.py", context="Django app")
+build_api("user management with CRUD operations")
+debug_issue("memory leak in worker process", priority="high")\`;
+            
+            navigator.clipboard.writeText(example).then(() => {
+                alert('Expert example code copied to clipboard!');
+            });
+        }
     </script>
 </body>
 </html>`;
@@ -285,15 +375,23 @@ app.get('/health', (req, res) => {
 
 app.get('/version', (req, res) => {
     res.json({ 
-        version: '2.1.0',
+        version: '3.0.0',
         updated: '2025-08-25',
         features: [
+            'NEW: CrewAI Expert System with 8 patterns',
+            'NEW: NIST and CMMC compliance crews',
+            'NEW: One-command setup script',
+            'NEW: Self-service portal with downloads',
             'CrewAI/AutoGen support with NO TIMEOUTS',
             'M4 Pro optimization for Metal acceleration',
             'Persistent job queue for days-long tasks',
             '64GB RAM for multiple 70B models',
-            'Automatic update checking',
-            'NEW: Job monitoring dashboard with system stats'
+            'Job monitoring dashboard with system stats'
+        ],
+        expert_patterns: [
+            'code-review', 'api-development', 'debugging',
+            'architecture-design', 'data-analysis', 'refactoring',
+            'nist-compliance', 'cmmc-compliance'
         ],
         check_for_updates: 'curl http://100.114.129.95:8080/version'
     });
@@ -302,6 +400,12 @@ app.get('/version', (req, res) => {
 // Serve job monitoring page
 app.get('/jobs', (req, res) => {
     res.sendFile(path.join(__dirname, 'job-monitor.html'));
+});
+
+// Serve favicon
+app.get('/favicon.svg', (req, res) => {
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.sendFile(path.join(__dirname, 'favicon.svg'));
 });
 
 // Diagnostic endpoint to test Ollama from portal
@@ -335,8 +439,137 @@ app.get('/test-ollama', async (req, res) => {
     });
 });
 
+// Serve the one-command setup script
+app.get('/setup.sh', (req, res) => {
+    const scriptPath = path.join(__dirname, 'scripts/setup_client.sh');
+    
+    if (fs.existsSync(scriptPath)) {
+        res.setHeader('Content-Type', 'text/x-shellscript');
+        res.setHeader('Content-Disposition', 'inline; filename="setup_client.sh"');
+        res.sendFile(scriptPath);
+    } else {
+        // Inline fallback version
+        res.setHeader('Content-Type', 'text/x-shellscript');
+        res.send(getSetupScript());
+    }
+});
+
+// Serve the CrewAI Expert Python client
+app.get('/downloads/claude_mini_expert.py', (req, res) => {
+    const clientPath = path.join(__dirname, 'client/claude_mini_expert.py');
+    
+    // Check if file exists locally first
+    if (fs.existsSync(clientPath)) {
+        res.setHeader('Content-Type', 'text/x-python');
+        res.setHeader('Content-Disposition', 'attachment; filename="claude_mini_expert.py"');
+        res.sendFile(clientPath);
+    } else {
+        // Fallback: serve inline version
+        res.setHeader('Content-Type', 'text/x-python');
+        res.setHeader('Content-Disposition', 'attachment; filename="claude_mini_expert.py"');
+        res.send(getExpertClientCode());
+    }
+});
+
+// Serve CrewAI Expert documentation
+app.get('/docs/crewai-expert', (req, res) => {
+    const docsPath = path.join(__dirname, 'CREWAI_EXPERT_GUIDE.md');
+    
+    if (fs.existsSync(docsPath)) {
+        const markdown = fs.readFileSync(docsPath, 'utf8');
+        const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CrewAI Expert Documentation</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        h1, h2, h3 { color: #333; margin-top: 30px; }
+        h1 { border-bottom: 3px solid #3b82f6; padding-bottom: 10px; }
+        h2 { border-bottom: 2px solid #e5e5e5; padding-bottom: 8px; }
+        pre { background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px; overflow-x: auto; }
+        code { background: #e5e5e5; padding: 2px 5px; border-radius: 3px; font-family: 'Courier New', monospace; }
+        .back-btn { position: fixed; top: 20px; right: 20px; background: #3b82f6; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; }
+        .back-btn:hover { background: #2563eb; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+        th, td { border: 1px solid #e5e5e5; padding: 10px; text-align: left; }
+        th { background: #f3f4f6; }
+        blockquote { border-left: 4px solid #3b82f6; padding-left: 20px; color: #666; }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-btn">← Back to Portal</a>
+    <div style="white-space: pre-wrap;">${escapeHtml(markdown)}</div>
+</body>
+</html>`;
+        res.send(html);
+    } else {
+        res.status(404).send('Documentation not found');
+    }
+});
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// Fallback setup script if file not found
+function getSetupScript() {
+    return `#!/bin/bash
+# CMini Quick Setup - Fallback Version
+curl -o ~/claude_mini_expert.py http://100.114.129.95:8080/downloads/claude_mini_expert.py
+chmod +x ~/claude_mini_expert.py
+echo "export PYTHONPATH=\\$HOME:\\$PYTHONPATH" >> ~/.zshrc
+echo "✅ Basic setup complete. Run: source ~/.zshrc"
+`;
+}
+
+// Fallback expert client code if file not found
+function getExpertClientCode() {
+    return `#!/usr/bin/env python3
+"""CrewAI Expert Client - Downloaded from CMini Portal"""
+# This is a minimal version - full version available on GitHub
+import requests
+import json
+
+MINI_IP = "100.114.129.95"
+BASE_URL = f"http://{MINI_IP}:3001"
+
+class CrewAIExpertClient:
+    def __init__(self, base_url=BASE_URL):
+        self.base_url = base_url
+        
+    def simple_crew(self, description, context="", files=None, priority="normal"):
+        response = requests.post(
+            f"{self.base_url}/api/crew/simple",
+            json={"description": description, "context": context, "files": files or [], "priority": priority}
+        )
+        return response.json() if response.status_code == 200 else None
+
+# Quick functions
+def review_code(description, files=None, context=""):
+    client = CrewAIExpertClient()
+    return client.simple_crew(f"Review this code: {description}", context, files)
+
+if __name__ == "__main__":
+    print("CrewAI Expert Client installed successfully!")
+    print("Usage: from claude_mini_expert import CrewAIExpertClient")
+`;
+}
+
 app.listen(port, '0.0.0.0', () => {
     console.log('Setup Portal running on port ' + port);
     console.log('Access at: http://' + MINI_TAILSCALE_IP + ':' + port);
     console.log('Or locally: http://' + MINI_LAN_IP + ':' + port);
+    console.log('\nNew endpoints:');
+    console.log('  /downloads/claude_mini_expert.py - Download CrewAI Expert client');
+    console.log('  /docs/crewai-expert - View expert documentation');
 });

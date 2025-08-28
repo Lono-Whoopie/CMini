@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Mac Mini body -->
+  <rect x="2" y="8" width="28" height="16" rx="2" fill="#e5e5e7"/>
+  <!-- Top surface highlight -->
+  <rect x="2" y="8" width="28" height="8" rx="2" fill="#f5f5f7"/>
+  <!-- Apple logo -->
+  <path d="M16 11 Q15 10 15 11 Q14 12 14 13 Q14 14 15 15 Q16 16 17 15 Q18 14 18 13 Q18 12 17 11 Q17 10 16.5 10.5 Q16.2 10 16 11 Z" fill="#333"/>
+  <path d="M16 10 Q16.5 9.5 16.5 10" stroke="#333" stroke-width="0.5" fill="none"/>
+  <!-- Front edge detail -->
+  <rect x="2" y="22" width="28" height="2" rx="1" fill="#d1d1d3"/>
+  <!-- Power button indicator -->
+  <circle cx="26" cy="20" r="1" fill="#333" opacity="0.3"/>
+  <!-- Subtle shadow at bottom -->
+  <rect x="2" y="23" width="28" height="1" rx="0.5" fill="#000" opacity="0.1"/>
+</svg>
